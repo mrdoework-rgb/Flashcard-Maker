@@ -22,13 +22,24 @@ def clone_slide(prs, source_slide):
     return new_slide
 
 def add_line_breaks_before_numbers(text):
-    """Add line break before numbered items (e.g., '1. ', '2. ', etc.)"""
+    """Add double line break before numbered items (e.g., '1. ', '2. ', etc.)"""
     import re
-    # Replace pattern: if there's text before a number, add a line break
-    return re.sub(r'([^\n])\s+(\d+\.)', r'\1\n\2', text)
+    # Replace pattern: if there's text before a number, add double line breaks
+    return re.sub(r'([^\n])\s+(\d+\.)', r'\1\n\n\2', text)
+
+def get_cell_indices_left_to_right(num_rows, num_cols, num_items):
+    """Generate cell indices filling left-to-right, then down"""
+    indices = []
+    for row in range(num_rows):
+        for col in range(num_cols):  # Left to right
+            cell_index = row * num_cols + col
+            if cell_index < num_items:
+                indices.append((row, col, cell_index))
+    return indices
 
 def get_cell_indices_right_to_left(num_rows, num_cols, num_items):
-    """Generate cell indices filling right-to-left, then down"""
+    """Generate cell indices filling right-to-left, then down for double-sided printing.
+    Maps answer positions to mirror question positions for back-of-page printing."""
     indices = []
     for row in range(num_rows):
         for col in range(num_cols - 1, -1, -1):  # Right to left
@@ -102,6 +113,7 @@ if uploaded_csv is not None:
                                             cell.text = ""
                                             
                         # Fill Answer Slide Table placeholders (right to left, top to bottom)
+                        # This mirrors the question layout for double-sided printing
                         for shape in a_slide.shapes:
                             if shape.has_table:
                                 table = shape.table
