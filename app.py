@@ -99,6 +99,23 @@ def get_cell_indices_mirror_horizontal(num_rows, num_cols, num_items):
                 indices.append((row, mirror_col, cell_index))
     return indices
 
+def parse_csv_flexible(csv_text):
+    """
+    Parse CSV data flexibly. Handles cases where data contains commas within fields.
+    Uses pandas read_csv with proper quoting parameters.
+    """
+    try:
+        # First try with standard CSV parsing
+        df = pd.read_csv(StringIO(csv_text), quotechar='"', escapechar='\\')
+        return df
+    except Exception as e1:
+        try:
+            # If that fails, try with minimal quoting
+            df = pd.read_csv(StringIO(csv_text), quoting=1)  # QUOTE_ALL
+            return df
+        except Exception as e2:
+            raise Exception(f"Could not parse CSV. Ensure data is in format: Topic,Question,Answer\nErrors: {str(e1)} | {str(e2)}")
+
 # Sidebar controls
 st.sidebar.header("Configuration")
 show_answers = st.sidebar.checkbox("Include Answers on Answer Slides", value=True, help="Uncheck to generate blank answer slides.")
@@ -119,13 +136,13 @@ if input_method == "Upload CSV File":
 else:
     # Paste CSV data
     csv_text = st.sidebar.text_area(
-        "Paste your CSV data here (Format: Topic,Front (Question),Back (Answer))",
+        "Paste your CSV data here (Format: Topic,Question,Answer)",
         height=200,
         placeholder="Topic,Question,Answer\nDensity,1. What is...,1. Density is..."
     )
     if csv_text.strip():
         try:
-            df = pd.read_csv(StringIO(csv_text))
+            df = parse_csv_flexible(csv_text)
         except Exception as e:
             st.error(f"Error parsing CSV data: {e}")
 
