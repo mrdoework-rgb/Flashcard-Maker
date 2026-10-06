@@ -6,6 +6,7 @@ from pptx.enum.text import PP_ALIGN
 from pptx.dml.color import RGBColor
 import copy
 import io
+from io import StringIO
 
 st.set_page_config(page_title="Flashcard PPT Generator", page_icon="📚", layout="centered")
 
@@ -102,15 +103,37 @@ def get_cell_indices_mirror_horizontal(num_rows, num_cols, num_items):
 st.sidebar.header("Configuration")
 show_answers = st.sidebar.checkbox("Include Answers on Answer Slides", value=True, help="Uncheck to generate blank answer slides.")
 
-# File uploader for CSV
-uploaded_csv = st.sidebar.file_uploader("Upload CSV Question Bank", type=["csv"])
+# Sidebar input method selection
+st.sidebar.header("Data Input")
+input_method = st.sidebar.radio("How would you like to input your data?", ["Upload CSV File", "Paste CSV Data"])
+
+df = None
+
+if input_method == "Upload CSV File":
+    uploaded_csv = st.sidebar.file_uploader("Upload CSV Question Bank", type=["csv"])
+    if uploaded_csv is not None:
+        try:
+            df = pd.read_csv(uploaded_csv)
+        except Exception as e:
+            st.error(f"Error reading CSV file: {e}")
+else:
+    # Paste CSV data
+    csv_text = st.sidebar.text_area(
+        "Paste your CSV data here (Format: Topic,Front (Question),Back (Answer))",
+        height=200,
+        placeholder="Topic,Question,Answer\nDensity,1. What is...,1. Density is..."
+    )
+    if csv_text.strip():
+        try:
+            df = pd.read_csv(StringIO(csv_text))
+        except Exception as e:
+            st.error(f"Error parsing CSV data: {e}")
 
 # Default template path
 TEMPLATE_PATH = "Flashcard template.pptx"
 
-if uploaded_csv is not None:
+if df is not None:
     try:
-        df = pd.read_csv(uploaded_csv)
         st.success(f"Successfully loaded CSV with {len(df)} rows.")
         
         # Display preview
@@ -208,6 +231,6 @@ if uploaded_csv is not None:
                     st.error(f"Error generating PowerPoint: {e}")
                     
     except Exception as e:
-        st.error(f"Error reading CSV file: {e}")
+        st.error(f"Error processing CSV data: {e}")
 else:
-    st.info("Please upload your CSV file via the sidebar to get started.")
+    st.info("Please upload a CSV file or paste CSV data via the sidebar to get started.")
