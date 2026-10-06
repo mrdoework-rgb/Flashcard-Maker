@@ -157,16 +157,22 @@ if input_method == "Upload CSV File":
         except Exception as e:
             st.error(f"Error reading CSV file: {e}")
 else:
-    csv_text = st.sidebar.text_area(
-        "Paste your data here in this format: Topic,Question,Answer",
-        height=200,
-        placeholder="Topic,Question,Answer\nDensity,1. What is density?,1. Density = mass / volume, ρ = m / V [cite: 1]"
-    )
-    if csv_text.strip():
-        try:
-            df = parse_csv_flexible(csv_text)
-        except Exception as e:
-            st.error(f"Error parsing CSV data: {e}")
+    with st.sidebar.form("csv_input_form"):
+        csv_text = st.sidebar.text_area(
+            "Paste your data here in this format: Topic,Question,Answer",
+            height=200,
+            placeholder="Topic,Question,Answer\nDensity,1. What is density?,1. Density = mass / volume, ρ = m / V [cite: 1]"
+        )
+        submitted = st.form_submit_button("📤 Parse CSV Data")
+
+    if submitted:
+        if csv_text.strip():
+            try:
+                df = parse_csv_flexible(csv_text)
+            except Exception as e:
+                st.error(f"Error parsing CSV data: {e}")
+        else:
+            st.warning("Please paste CSV data before parsing.")
 
 # Default template path
 TEMPLATE_PATH = "Flashcard template.pptx"
