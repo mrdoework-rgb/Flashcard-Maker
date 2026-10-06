@@ -37,15 +37,18 @@ def get_cell_indices_left_to_right(num_rows, num_cols, num_items):
                 indices.append((row, col, cell_index))
     return indices
 
-def get_cell_indices_right_to_left(num_rows, num_cols, num_items):
-    """Generate cell indices filling right-to-left, then down for double-sided printing.
-    Maps answer positions to mirror question positions for back-of-page printing."""
+def get_cell_indices_mirror_horizontal(num_rows, num_cols, num_items):
+    """Generate cell indices mirrored horizontally for double-sided printing.
+    Flips left-right so answers align with questions on the back when printed.
+    For a 2x4 grid, position [0,0] maps to [0,3], [0,1] maps to [0,2], etc."""
     indices = []
     for row in range(num_rows):
-        for col in range(num_cols - 1, -1, -1):  # Right to left
+        for col in range(num_cols):  # Left to right
+            # Mirror column position: if col=0, mirror_col=3; if col=1, mirror_col=2, etc.
+            mirror_col = num_cols - 1 - col
             cell_index = row * num_cols + col
             if cell_index < num_items:
-                indices.append((row, col, cell_index))
+                indices.append((row, mirror_col, cell_index))
     return indices
 
 # Sidebar controls
@@ -112,23 +115,22 @@ if uploaded_csv is not None:
                                         else:
                                             cell.text = ""
                                             
-                        # Fill Answer Slide Table placeholders (right to left, top to bottom)
-                        # This mirrors the question layout for double-sided printing
+                        # Fill Answer Slide Table placeholders (horizontally mirrored for double-sided printing)
                         for shape in a_slide.shapes:
                             if shape.has_table:
                                 table = shape.table
                                 num_rows = len(table.rows)
                                 num_cols = len(table.rows[0].cells)
                                 
-                                # Get indices for right-to-left filling
-                                cell_mapping = get_cell_indices_right_to_left(num_rows, num_cols, len(batch_a))
+                                # Get indices for horizontally mirrored filling
+                                cell_mapping = get_cell_indices_mirror_horizontal(num_rows, num_cols, len(batch_a))
                                 
                                 # First, clear all cells
                                 for row in table.rows:
                                     for cell in row.cells:
                                         cell.text = ""
                                 
-                                # Then fill according to right-to-left mapping
+                                # Then fill according to mirror mapping
                                 for r_idx, c_idx, item_idx in cell_mapping:
                                     if item_idx < len(batch_a):
                                         table.rows[r_idx].cells[c_idx].text = (
