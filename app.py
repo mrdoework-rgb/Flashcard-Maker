@@ -11,6 +11,10 @@ st.set_page_config(page_title="Flashcard PPT Generator", page_icon="📚", layou
 st.title("📚 Flashcard PowerPoint Generator")
 st.markdown("Upload your CSV question bank to automatically populate and scale your PowerPoint flashcard template.")
 
+# Initialize session state
+if "df" not in st.session_state:
+    st.session_state.df = None
+
 # Helper function to duplicate slides
 def clone_slide(prs, source_slide):
     blank_layout = source_slide.slide_layout
@@ -147,18 +151,16 @@ show_answers = st.sidebar.checkbox("Include Answers on Answer Slides", value=Tru
 st.sidebar.header("Data Input")
 input_method = st.sidebar.radio("How would you like to input your data?", ["Upload CSV File", "Paste CSV Data"])
 
-df = None
-
 if input_method == "Upload CSV File":
     uploaded_csv = st.sidebar.file_uploader("Upload CSV Question Bank", type=["csv"])
     if uploaded_csv is not None:
         try:
-            df = pd.read_csv(uploaded_csv)
+            st.session_state.df = pd.read_csv(uploaded_csv)
         except Exception as e:
             st.error(f"Error reading CSV file: {e}")
 else:
     with st.sidebar.form("csv_input_form"):
-        csv_text = st.sidebar.text_area(
+        csv_text = st.text_area(
             "Paste your data here in this format: Topic,Question,Answer",
             height=200,
             placeholder="Topic,Question,Answer\nDensity,1. What is density?,1. Density = mass / volume, ρ = m / V [cite: 1]"
@@ -168,7 +170,7 @@ else:
     if submitted:
         if csv_text.strip():
             try:
-                df = parse_csv_flexible(csv_text)
+                st.session_state.df = parse_csv_flexible(csv_text)
             except Exception as e:
                 st.error(f"Error parsing CSV data: {e}")
         else:
@@ -177,23 +179,23 @@ else:
 # Default template path
 TEMPLATE_PATH = "Flashcard template.pptx"
 
-if df is not None:
+if st.session_state.df is not None:
     try:
-        st.success(f"Successfully loaded CSV with {len(df)} rows.")
+        st.success(f"Successfully loaded CSV with {len(st.session_state.df)} rows.")
 
         st.subheader("CSV Data Preview")
-        st.dataframe(df.head())
+        st.dataframe(st.session_state.df.head())
 
-        if len(df.columns) < 3:
+        if len(st.session_state.df.columns) < 3:
             st.error("The uploaded CSV must have at least 3 columns: Topic, Question (2nd column), and Answer (3rd column).")
         else:
-            t_col = df.columns[0]
-            q_col = df.columns[1]
-            a_col = df.columns[2]
+            t_col = st.session_state.df.columns[0]
+            q_col = st.session_state.df.columns[1]
+            a_col = st.session_state.df.columns[2]
 
-            topics = df[t_col].astype(str).tolist()
-            questions = df[q_col].astype(str).tolist()
-            answers = df[a_col].astype(str).tolist()
+            topics = st.session_state.df[t_col].astype(str).tolist()
+            questions = st.session_state.df[q_col].astype(str).tolist()
+            answers = st.session_state.df[a_col].astype(str).tolist()
 
             if st.button("Generate Flashcard Presentation"):
                 try:
