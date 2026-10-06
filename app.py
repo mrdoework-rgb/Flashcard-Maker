@@ -23,23 +23,57 @@ def clone_slide(prs, source_slide):
         new_slide.shapes._spTree.append(new_el)
     return new_slide
 
+
 def add_line_breaks_before_numbers(text):
     """Add double line break before numbered items (e.g., '1. ', '2. ', etc.)"""
-    # Replace pattern: if there's text before a number, add double line breaks
     return re.sub(r'([^\n])\s+(\d+\.)', r'\1\n\n\2', text)
 
-def replace_text_in_cell(cell, old_text, new_text):
-    """Replace placeholder text in a cell while preserving formatting."""
-    if cell.text_frame is None:
+
+def replace_tokens_in_text_frame(text_frame, replacements):
+    """Replace placeholder tokens in a text frame without losing the formatting of the slide template."""
+    if text_frame is None:
         return
-    
-    for paragraph in cell.text_frame.paragraphs:
-        for run in paragraph.runs:
-            if old_text in run.text:
-                run.text = run.text.replace(old_text, new_text)
+
+    # Update runs first (best preserves formatting)
+    for paragraph in text_frame.paragraphs:
+        runs = list(paragraph.runs)
+        if not runs:
+            current = paragraph.text
+            updated = current
+            for token, value in replacements.items():
+                updated = updated.replace(token, value)
+            if updated != current:
+                paragraph.text = updated
+            continue
+
+        for run in runs:
+            current = run.text
+            updated = current
+            for token, value in replacements.items():
+                updated = updated.replace(token, value)
+            if updated != current:
+                run.text = updated
+
+
+def replace_tokens_in_shape(shape, replacements):
+    """Replace placeholder tokens in a shape or table cell."""
+    if shape.has_table:
+        table = shape.table
+        for row in table.rows:
+            for cell in row.cells:
+                replace_tokens_in_text_frame(cell.text_frame, replacements)
+    elif shape.has_text_frame:
+        replace_tokens_in_text_frame(shape.text_frame, replacements)
+
+
+def replace_tokens_in_slide(slide, replacements):
+    """Replace placeholder tokens across all text-bearing shapes on a slide."""
+    for shape in slide.shapes:
+        replace_tokens_in_shape(shape, replacements)
+
 
 def get_cell_indices_left_to_right(num_rows, num_cols, num_items):
-    """Generate cell indices filling left-to-right, then down"""
+    """Generate cell indices filling left-to-right, then down."""
     indices = []
     for row in range(num_rows):
         for col in range(num_cols):
@@ -153,42 +187,21 @@ if df is not None:
                         batch_q = questions[pair_idx * 8 : (pair_idx + 1) * 8]
                         batch_a = answers[pair_idx * 8 : (pair_idx + 1) * 8]
 
-                        # Process Question Slide
-                        for shape in q_slide.shapes:
-                            if shape.has_table:
-                                table = shape.table
-                                num_rows = len(table.rows)
-                                num_cols = len(table.rows[0].cells)
+                        # Replace question placeholders: {Title1} {Question Bank1}, {Title2} {Question Bank2}, etc.
+                        for card_idx, (title, question) in enumerate(zip(batch_t, batch_q), start=1):
+                            replacements = {
+                                f"{{Title{card_idx}}}": title,
+                                f"{{Question Bank{card_idx}}}": add_line_breaks_before_numbers(question),
+                            }
+                            replace_tokens_in_slide(q_slide, replacements)
 
-                                # Replace placeholders in question slide
-                                for idx, (title, question) in enumerate(zip(batch_t, batch_q)):
-                                    placeholder_title = f"{{Title{idx+1}}}"
-                                    placeholder_question = f"{{Question Bank{idx+1}}}"
-                                    
-                                    # Find and replace in all cells
-                                    for row in table.rows:
-                                        for cell in row.cells:
-                                            replace_text_in_cell(cell, placeholder_title, title)
-                                            replace_text_in_cell(cell, placeholder_question, add_line_breaks_before_numbers(question))
-
-                        # Process Answer Slide
-                        for shape in a_slide.shapes:
-                            if shape.has_table:
-                                table = shape.table
-                                num_rows = len(table.rows)
-                                num_cols = len(table.rows[0].cells)
-
-                                # Get indices for horizontally mirrored filling
-                                cell_mapping = get_cell_indices_mirror_horizontal(num_rows, num_cols, len(batch_a))
-
-                                # Replace answer placeholders (already mirrored in template)
-                                for idx in range(len(batch_a)):
-                                    placeholder_answer = f"{{Answer Bank{idx+1}}}"
-                                    answer_content = batch_a[idx] if show_answers else ""
-                                    
-                                    for row in table.rows:
-                                        for cell in row.cells:
-                                            replace_text_in_cell(cell, placeholder_answer, add_line_breaks_before_numbers(answer_content))
+                        # Replace answer placeholders: {Answer Bank1}, {Answer Bank2}, etc.
+                        for card_idx, answer in enumerate(batch_a, start=1):
+                            answer_value = add_line_breaks_before_numbers(answer) if show_answers else ""
+                            replacements = {
+                                f"{{Answer Bank{card_idx}}}": answer_value,
+                            }
+                            replace_tokens_in_slide(a_slide, replacements)
 
                     output_buffer = io.BytesIO()
                     prs.save(output_buffer)
