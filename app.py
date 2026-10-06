@@ -17,7 +17,7 @@ st.markdown("Upload your CSV question bank to automatically populate and scale y
 def clone_slide(prs, source_slide):
     blank_layout = source_slide.slide_layout
     new_slide = prs.slides.add_slide(blank_layout)
-    for shape in list(new_slide.shapes):
+    for shape in list(new_shape.shapes):
         sp = shape.element
         sp.getparent().remove(sp)
     for shape in source_slide.shapes:
@@ -37,6 +37,7 @@ def format_question_cell_with_title(cell, title, content):
     cell.text = ""
     tf = cell.text_frame
     tf.clear()
+    tf.word_wrap = True
 
     # Title paragraph: bold, centered, white text on black background
     title_paragraph = tf.paragraphs[0]
@@ -44,15 +45,26 @@ def format_question_cell_with_title(cell, title, content):
     title_run = title_paragraph.add_run()
     title_run.text = str(title)
     title_run.font.bold = True
+    title_run.font.size = Pt(11)
     title_run.font.color.rgb = RGBColor(255, 255, 255)  # White text
     
-    # Apply black background to the title run
-    from pptx.oxml.xmlchemy import OxmlElement
-    shd = OxmlElement('a:solidFill')
-    srgbClr = OxmlElement('a:srgbClr')
-    srgbClr.set('val', '000000')  # Black
-    shd.append(srgbClr)
-    title_run._element.get_or_add_rPr().append(shd)
+    # Apply black background to the title run using XML
+    try:
+        rPr = title_run._r.get_or_add_rPr()
+        shd_elm = rPr.find('{http://schemas.openxmlformats.org/wordprocessingml/2006/main}shd')
+        if shd_elm is not None:
+            rPr.remove(shd_elm)
+        
+        # Create highlight element
+        from lxml import etree
+        shd = etree.SubElement(
+            rPr,
+            '{http://schemas.openxmlformats.org/wordprocessingml/2006/main}shd',
+            fill='000000'
+        )
+    except Exception:
+        # If XML manipulation fails, just skip the background
+        pass
 
     # Add a blank paragraph to create the double line break
     tf.add_paragraph()
@@ -68,6 +80,7 @@ def format_answer_cell(cell, content):
     cell.text = ""
     tf = cell.text_frame
     tf.clear()
+    tf.word_wrap = True
 
     # Content paragraph
     content_paragraph = tf.paragraphs[0]
