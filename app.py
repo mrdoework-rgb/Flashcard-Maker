@@ -33,23 +33,48 @@ def add_line_breaks_before_numbers(text):
 
 
 def format_question_cell_with_title(cell, title, content):
-    """Question cell: centered bold title in white, then content."""
+    """Question cell: centered bold title with black background, then content."""
     cell.text = ""
     tf = cell.text_frame
     tf.clear()
     tf.word_wrap = True
 
+    # Title paragraph: centered, bold, white text on black background
     title_paragraph = tf.paragraphs[0]
     title_paragraph.alignment = PP_ALIGN.CENTER
+    title_paragraph.level = 0
 
     title_run = title_paragraph.add_run()
     title_run.text = str(title)
     title_run.font.bold = True
     title_run.font.size = Pt(12)
-    title_run.font.color.rgb = RGBColor(255, 255, 255)
+    title_run.font.color.rgb = RGBColor(255, 255, 255)  # White text
 
+    # Apply black fill/highlight to the title paragraph
+    from pptx.oxml.xmlchemy import OxmlElement
+    from pptx.oxml.ns import nsdecls
+    
+    # Create paragraph properties if needed
+    pPr = title_paragraph._element.get_or_add_pPr()
+    
+    # Remove any existing shd element
+    for child in pPr:
+        if 'shd' in child.tag:
+            pPr.remove(child)
+    
+    # Add black shading to paragraph
+    shd_xml = f'<a:solidFill xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:srgbClr val="000000"/></a:solidFill>'
+    try:
+        from lxml import etree
+        shd_elm = etree.fromstring(shd_xml)
+        pPr.append(shd_elm)
+    except Exception:
+        pass  # If XML fails, continue without black background
+
+    # Add a blank paragraph to create the double line break
     tf.add_paragraph()
 
+    # Content paragraph
     content_paragraph = tf.add_paragraph()
     content_run = content_paragraph.add_run()
     content_run.text = add_line_breaks_before_numbers(str(content))
