@@ -1,11 +1,9 @@
 import streamlit as st
 import pandas as pd
 from pptx import Presentation
-from pptx.util import Pt
-from pptx.enum.text import PP_ALIGN
-from pptx.dml.color import RGBColor
 import copy
 import io
+import re
 from io import StringIO
 
 st.set_page_config(page_title="Flashcard PPT Generator", page_icon="📚", layout="centered")
@@ -27,70 +25,18 @@ def clone_slide(prs, source_slide):
 
 def add_line_breaks_before_numbers(text):
     """Add double line break before numbered items (e.g., '1. ', '2. ', etc.)"""
-    import re
     # Replace pattern: if there's text before a number, add double line breaks
     return re.sub(r'([^\n])\s+(\d+\.)', r'\1\n\n\2', text)
 
-
-def format_question_cell_with_title(cell, title, content):
-    """Question cell: centered bold title with black background, then content."""
-    cell.text = ""
-    tf = cell.text_frame
-    tf.clear()
-    tf.word_wrap = True
-
-    # Title paragraph: centered, bold, white text on black background
-    title_paragraph = tf.paragraphs[0]
-    title_paragraph.alignment = PP_ALIGN.CENTER
-    title_paragraph.level = 0
-
-    title_run = title_paragraph.add_run()
-    title_run.text = str(title)
-    title_run.font.bold = True
-    title_run.font.size = Pt(12)
-    title_run.font.color.rgb = RGBColor(255, 255, 255)  # White text
-
-    # Apply black fill/highlight to the title paragraph
-    from pptx.oxml.xmlchemy import OxmlElement
-    from pptx.oxml.ns import nsdecls
+def replace_text_in_cell(cell, old_text, new_text):
+    """Replace placeholder text in a cell while preserving formatting."""
+    if cell.text_frame is None:
+        return
     
-    # Create paragraph properties if needed
-    pPr = title_paragraph._element.get_or_add_pPr()
-    
-    # Remove any existing shd element
-    for child in pPr:
-        if 'shd' in child.tag:
-            pPr.remove(child)
-    
-    # Add black shading to paragraph
-    shd_xml = f'<a:solidFill xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:srgbClr val="000000"/></a:solidFill>'
-    try:
-        from lxml import etree
-        shd_elm = etree.fromstring(shd_xml)
-        pPr.append(shd_elm)
-    except Exception:
-        pass  # If XML fails, continue without black background
-
-    # Add a blank paragraph to create the double line break
-    tf.add_paragraph()
-
-    # Content paragraph
-    content_paragraph = tf.add_paragraph()
-    content_run = content_paragraph.add_run()
-    content_run.text = add_line_breaks_before_numbers(str(content))
-
-
-def format_answer_cell(cell, content):
-    """Answer cell: no title, just content."""
-    cell.text = ""
-    tf = cell.text_frame
-    tf.clear()
-    tf.word_wrap = True
-
-    content_paragraph = tf.paragraphs[0]
-    content_run = content_paragraph.add_run()
-    content_run.text = add_line_breaks_before_numbers(str(content))
-
+    for paragraph in cell.text_frame.paragraphs:
+        for run in paragraph.runs:
+            if old_text in run.text:
+                run.text = run.text.replace(old_text, new_text)
 
 def get_cell_indices_left_to_right(num_rows, num_cols, num_items):
     """Generate cell indices filling left-to-right, then down"""
@@ -207,39 +153,42 @@ if df is not None:
                         batch_q = questions[pair_idx * 8 : (pair_idx + 1) * 8]
                         batch_a = answers[pair_idx * 8 : (pair_idx + 1) * 8]
 
+                        # Process Question Slide
                         for shape in q_slide.shapes:
                             if shape.has_table:
                                 table = shape.table
                                 num_rows = len(table.rows)
                                 num_cols = len(table.rows[0].cells)
 
-                                for r_idx, row in enumerate(table.rows):
-                                    for c_idx, cell in enumerate(row.cells):
-                                        idx = r_idx * num_cols + c_idx
-                                        if idx < len(batch_q):
-                                            format_question_cell_with_title(cell, batch_t[idx], batch_q[idx])
-                                        else:
-                                            cell.text = ""
+                                # Replace placeholders in question slide
+                                for idx, (title, question) in enumerate(zip(batch_t, batch_q)):
+                                    placeholder_title = f"{{Title{idx+1}}}"
+                                    placeholder_question = f"{{Question Bank{idx+1}}}"
+                                    
+                                    # Find and replace in all cells
+                                    for row in table.rows:
+                                        for cell in row.cells:
+                                            replace_text_in_cell(cell, placeholder_title, title)
+                                            replace_text_in_cell(cell, placeholder_question, add_line_breaks_before_numbers(question))
 
+                        # Process Answer Slide
                         for shape in a_slide.shapes:
                             if shape.has_table:
                                 table = shape.table
                                 num_rows = len(table.rows)
                                 num_cols = len(table.rows[0].cells)
 
+                                # Get indices for horizontally mirrored filling
                                 cell_mapping = get_cell_indices_mirror_horizontal(num_rows, num_cols, len(batch_a))
 
-                                for row in table.rows:
-                                    for cell in row.cells:
-                                        cell.text = ""
-
-                                for r_idx, c_idx, item_idx in cell_mapping:
-                                    if item_idx < len(batch_a):
-                                        answer_content = (
-                                            add_line_breaks_before_numbers(batch_a[item_idx])
-                                            if show_answers else ""
-                                        )
-                                        format_answer_cell(table.rows[r_idx].cells[c_idx], answer_content)
+                                # Replace answer placeholders (already mirrored in template)
+                                for idx in range(len(batch_a)):
+                                    placeholder_answer = f"{{Answer Bank{idx+1}}}"
+                                    answer_content = batch_a[idx] if show_answers else ""
+                                    
+                                    for row in table.rows:
+                                        for cell in row.cells:
+                                            replace_text_in_cell(cell, placeholder_answer, add_line_breaks_before_numbers(answer_content))
 
                     output_buffer = io.BytesIO()
                     prs.save(output_buffer)
