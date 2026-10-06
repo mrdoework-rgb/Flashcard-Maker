@@ -21,6 +21,22 @@ def clone_slide(prs, source_slide):
         new_slide.shapes._spTree.append(new_el)
     return new_slide
 
+def add_line_breaks_before_numbers(text):
+    """Add line break before numbered items (e.g., '1. ', '2. ', etc.)"""
+    import re
+    # Replace pattern: if there's text before a number, add a line break
+    return re.sub(r'([^\n])\s+(\d+\.)', r'\1\n\2', text)
+
+def get_cell_indices_right_to_left(num_rows, num_cols, num_items):
+    """Generate cell indices filling right-to-left, then down"""
+    indices = []
+    for row in range(num_rows):
+        for col in range(num_cols - 1, -1, -1):  # Right to left
+            cell_index = row * num_cols + col
+            if cell_index < num_items:
+                indices.append((row, col, cell_index))
+    return indices
+
 # Sidebar controls
 st.sidebar.header("Configuration")
 show_answers = st.sidebar.checkbox("Include Answers on Answer Slides", value=True, help="Uncheck to generate blank answer slides.")
@@ -70,29 +86,43 @@ if uploaded_csv is not None:
                         batch_q = questions[pair_idx * 8 : (pair_idx + 1) * 8]
                         batch_a = answers[pair_idx * 8 : (pair_idx + 1) * 8]
                         
-                        # Fill Question Slide Table placeholders
+                        # Fill Question Slide Table placeholders (left to right, top to bottom)
                         for shape in q_slide.shapes:
                             if shape.has_table:
                                 table = shape.table
+                                num_rows = len(table.rows)
+                                num_cols = len(table.rows[0].cells)
+                                
                                 for r_idx, row in enumerate(table.rows):
                                     for c_idx, cell in enumerate(row.cells):
-                                        idx = r_idx * 2 + c_idx
+                                        idx = r_idx * num_cols + c_idx
                                         if idx < len(batch_q):
-                                            cell.text = batch_q[idx]
+                                            cell.text = add_line_breaks_before_numbers(batch_q[idx])
                                         else:
                                             cell.text = ""
                                             
-                        # Fill Answer Slide Table placeholders
+                        # Fill Answer Slide Table placeholders (right to left, top to bottom)
                         for shape in a_slide.shapes:
                             if shape.has_table:
                                 table = shape.table
-                                for r_idx, row in enumerate(table.rows):
-                                    for c_idx, cell in enumerate(row.cells):
-                                        idx = r_idx * 2 + c_idx
-                                        if idx < len(batch_a):
-                                            cell.text = batch_a[idx] if show_answers else ""
-                                        else:
-                                            cell.text = ""
+                                num_rows = len(table.rows)
+                                num_cols = len(table.rows[0].cells)
+                                
+                                # Get indices for right-to-left filling
+                                cell_mapping = get_cell_indices_right_to_left(num_rows, num_cols, len(batch_a))
+                                
+                                # First, clear all cells
+                                for row in table.rows:
+                                    for cell in row.cells:
+                                        cell.text = ""
+                                
+                                # Then fill according to right-to-left mapping
+                                for r_idx, c_idx, item_idx in cell_mapping:
+                                    if item_idx < len(batch_a):
+                                        table.rows[r_idx].cells[c_idx].text = (
+                                            add_line_breaks_before_numbers(batch_a[item_idx]) 
+                                            if show_answers else ""
+                                        )
                                             
                     # Save to BytesIO buffer
                     output_buffer = io.BytesIO()
