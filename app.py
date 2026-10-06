@@ -101,20 +101,33 @@ def get_cell_indices_mirror_horizontal(num_rows, num_cols, num_items):
 
 def parse_csv_flexible(csv_text):
     """
-    Parse CSV data flexibly. Handles cases where data contains commas within fields.
-    Uses pandas read_csv with proper quoting parameters.
+    Parse pasted flashcard data in the form:
+    Topic,Question,Answer
+
+    This supports the common case where the answer text contains commas, and standard
+    CSV quoting is not used. It splits only on the first two commas, so the third field
+    retains the rest of the answer text.
     """
-    try:
-        # First try with standard CSV parsing
-        df = pd.read_csv(StringIO(csv_text), quotechar='"', escapechar='\\')
-        return df
-    except Exception as e1:
-        try:
-            # If that fails, try with minimal quoting
-            df = pd.read_csv(StringIO(csv_text), quoting=1)  # QUOTE_ALL
-            return df
-        except Exception as e2:
-            raise Exception(f"Could not parse CSV. Ensure data is in format: Topic,Question,Answer\nErrors: {str(e1)} | {str(e2)}")
+    lines = [line.strip() for line in csv_text.splitlines() if line.strip()]
+    if not lines:
+        raise ValueError("No data was pasted.")
+
+    # Remove a possible header row such as: Topic,Front (Question),Back (Answer)
+    if lines[0].lower().startswith("topic,"):
+        lines = lines[1:]
+
+    rows = []
+    for idx, line in enumerate(lines, start=1):
+        parts = [p.strip() for p in line.split(",", 2)]
+        if len(parts) != 3:
+            raise ValueError(
+                f"Row {idx} is not in a valid Topic,Question,Answer format. "
+                f"Found {len(parts)} parts: {parts}"
+            )
+        topic, question, answer = parts
+        rows.append({"Topic": topic, "Question": question, "Answer": answer})
+
+    return pd.DataFrame(rows)
 
 # Sidebar controls
 st.sidebar.header("Configuration")
@@ -136,9 +149,9 @@ if input_method == "Upload CSV File":
 else:
     # Paste CSV data
     csv_text = st.sidebar.text_area(
-        "Paste your CSV data here (Format: Topic,Question,Answer)",
+        "Paste your data here in this format: Topic,Question,Answer",
         height=200,
-        placeholder="Topic,Question,Answer\nDensity,1. What is...,1. Density is..."
+        placeholder="Topic,Question,Answer\nDensity,1. What is density?,1. Density = mass / volume, ρ = m / V [cite: 1]"
     )
     if csv_text.strip():
         try:
