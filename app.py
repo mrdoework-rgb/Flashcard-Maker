@@ -96,23 +96,44 @@ def get_cell_indices_mirror_horizontal(num_rows, num_cols, num_items):
 
 
 def parse_csv_flexible(csv_text):
-    """Parse pasted Topic,Question,Answer rows without breaking when answers contain commas."""
+    """Parse pasted Topic,Question,Answer rows without breaking when answers contain commas.
+    Handles both quoted and unquoted CSV formats."""
+    import csv
+    
+    # Strip ```csv tags if present
+    csv_text = csv_text.strip()
+    if csv_text.startswith("```csv"):
+        csv_text = csv_text[6:]  # Remove ```csv
+    if csv_text.startswith("```"):
+        csv_text = csv_text[3:]  # Remove ``` in case just ``` is there
+    if csv_text.endswith("```"):
+        csv_text = csv_text[:-3]  # Remove closing ```
+    
+    csv_text = csv_text.strip()
+    
     lines = [line.strip() for line in csv_text.splitlines() if line.strip()]
     if not lines:
         raise ValueError("No data was pasted.")
 
-    if lines[0].lower().startswith("topic,"):
+    # Check if header is present and skip it
+    if lines[0].lower().startswith("topic,") or lines[0].startswith('"Topic"'):
         lines = lines[1:]
 
     rows = []
-    for idx, line in enumerate(lines, start=1):
-        parts = [p.strip() for p in line.split(",", 2)]
-        if len(parts) != 3:
+    reader = csv.reader(lines)
+    
+    for idx, row in enumerate(reader, start=1):
+        if len(row) < 3:
             raise ValueError(
                 f"Row {idx} is not in a valid Topic,Question,Answer format. "
-                f"Found {len(parts)} parts: {parts}"
+                f"Found {len(row)} parts: {row}"
             )
-        topic, question, answer = parts
+        
+        # Take first 3 columns and strip quotes/whitespace
+        topic = row[0].strip().strip('"')
+        question = row[1].strip().strip('"')
+        answer = row[2].strip().strip('"')
+        
         rows.append({"Topic": topic, "Question": question, "Answer": answer})
 
     return pd.DataFrame(rows)
