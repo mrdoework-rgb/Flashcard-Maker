@@ -34,11 +34,16 @@ def add_line_breaks_before_numbers(text):
 
 
 def replace_tokens_in_text_frame(text_frame, replacements):
-    """Replace placeholder tokens in a text frame without losing the formatting of the slide template."""
+    """Replace placeholder tokens in a text frame.
+    Try a per-run replacement first (best preserves formatting). If token
+    content is split across runs, fall back to full text replacement by
+    rebuilding the frame from combined text.
+    """
     if text_frame is None:
         return
 
-    # Update runs first (best preserves formatting)
+    # First pass: preserve formatting when possible.
+    did_replace = False
     for paragraph in text_frame.paragraphs:
         runs = list(paragraph.runs)
         if not runs:
@@ -48,6 +53,7 @@ def replace_tokens_in_text_frame(text_frame, replacements):
                 updated = updated.replace(token, value)
             if updated != current:
                 paragraph.text = updated
+                did_replace = True
             continue
 
         for run in runs:
@@ -57,6 +63,28 @@ def replace_tokens_in_text_frame(text_frame, replacements):
                 updated = updated.replace(token, value)
             if updated != current:
                 run.text = updated
+                did_replace = True
+
+    if did_replace:
+        return
+
+    # Second pass: fallback for tokens split across multiple runs.
+    combined = "\n".join(p.text for p in text_frame.paragraphs)
+    updated = combined
+    for token, value in replacements.items():
+        updated = updated.replace(token, value)
+
+    if updated == combined:
+        return
+
+    text_frame.clear()
+    lines = updated.splitlines()
+    for idx, line in enumerate(lines):
+        if idx == 0:
+            text_frame.paragraphs[0].text = line
+        else:
+            p = text_frame.add_paragraph()
+            p.text = line
 
 
 def replace_tokens_in_shape(shape, replacements):
@@ -103,7 +131,7 @@ def parse_csv_flexible(csv_text):
     """Parse pasted Topic,Question,Answer rows without breaking when answers contain commas.
     Handles both quoted and unquoted CSV formats."""
     import csv
-    
+
     # Strip ```csv tags if present
     csv_text = csv_text.strip()
     if csv_text.startswith("```csv"):
@@ -112,9 +140,9 @@ def parse_csv_flexible(csv_text):
         csv_text = csv_text[3:]  # Remove ``` in case just ``` is there
     if csv_text.endswith("```"):
         csv_text = csv_text[:-3]  # Remove closing ```
-    
+
     csv_text = csv_text.strip()
-    
+
     lines = [line.strip() for line in csv_text.splitlines() if line.strip()]
     if not lines:
         raise ValueError("No data was pasted.")
@@ -125,19 +153,19 @@ def parse_csv_flexible(csv_text):
 
     rows = []
     reader = csv.reader(lines)
-    
+
     for idx, row in enumerate(reader, start=1):
         if len(row) < 3:
             raise ValueError(
                 f"Row {idx} is not in a valid Topic,Question,Answer format. "
                 f"Found {len(row)} parts: {row}"
             )
-        
+
         # Take first 3 columns and strip quotes/whitespace
         topic = row[0].strip().strip('"')
         question = row[1].strip().strip('"')
         answer = row[2].strip().strip('"')
-        
+
         rows.append({"Topic": topic, "Question": question, "Answer": answer})
 
     return pd.DataFrame(rows)
