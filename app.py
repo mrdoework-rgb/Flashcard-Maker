@@ -1,6 +1,9 @@
 import streamlit as st
 import pandas as pd
 from pptx import Presentation
+from pptx.util import Pt
+from pptx.enum.text import PP_ALIGN
+from pptx.dml.color import RGBColor
 import copy
 import io
 
@@ -27,24 +30,46 @@ def add_line_breaks_before_numbers(text):
     # Replace pattern: if there's text before a number, add double line breaks
     return re.sub(r'([^\n])\s+(\d+\.)', r'\1\n\n\2', text)
 
-def format_cell_with_title(cell, title, content):
-    """Format cell with bold, underlined title at the top, then double line break before content."""
+def format_question_cell_with_title(cell, title, content):
+    """Format question cell with centered, bold, white text on black highlight title, 
+    then double line break before content."""
     cell.text = ""
     tf = cell.text_frame
     tf.clear()
 
-    # Title paragraph: bold + underline
+    # Title paragraph: bold, centered, white text on black background
     title_paragraph = tf.paragraphs[0]
+    title_paragraph.alignment = PP_ALIGN.CENTER
     title_run = title_paragraph.add_run()
     title_run.text = str(title)
     title_run.font.bold = True
-    title_run.font.underline = True
+    title_run.font.color.rgb = RGBColor(255, 255, 255)  # White text
+    
+    # Apply black background to the title run
+    from pptx.oxml.xmlchemy import OxmlElement
+    shd = OxmlElement('a:solidFill')
+    srgbClr = OxmlElement('a:srgbClr')
+    srgbClr.set('val', '000000')  # Black
+    shd.append(srgbClr)
+    title_run._element.get_or_add_rPr().append(shd)
 
     # Add a blank paragraph to create the double line break
     tf.add_paragraph()
 
     # Content paragraph
     content_paragraph = tf.add_paragraph()
+    content_run = content_paragraph.add_run()
+    content_run.text = add_line_breaks_before_numbers(str(content))
+
+
+def format_answer_cell(cell, content):
+    """Format answer cell with content only (no title)."""
+    cell.text = ""
+    tf = cell.text_frame
+    tf.clear()
+
+    # Content paragraph
+    content_paragraph = tf.paragraphs[0]
     content_run = content_paragraph.add_run()
     content_run.text = add_line_breaks_before_numbers(str(content))
 
@@ -136,7 +161,7 @@ if uploaded_csv is not None:
                                     for c_idx, cell in enumerate(row.cells):
                                         idx = r_idx * num_cols + c_idx
                                         if idx < len(batch_q):
-                                            format_cell_with_title(cell, batch_t[idx], batch_q[idx])
+                                            format_question_cell_with_title(cell, batch_t[idx], batch_q[idx])
                                         else:
                                             cell.text = ""
                                             
@@ -162,7 +187,8 @@ if uploaded_csv is not None:
                                             add_line_breaks_before_numbers(batch_a[item_idx])
                                             if show_answers else ""
                                         )
-                                        format_cell_with_title(table.rows[r_idx].cells[c_idx], batch_t[item_idx], answer_content)
+                                        # Answer side: no title, just content
+                                        format_answer_cell(table.rows[r_idx].cells[c_idx], answer_content)
                                             
                     # Save to BytesIO buffer
                     output_buffer = io.BytesIO()
