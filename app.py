@@ -27,6 +27,28 @@ def add_line_breaks_before_numbers(text):
     # Replace pattern: if there's text before a number, add double line breaks
     return re.sub(r'([^\n])\s+(\d+\.)', r'\1\n\n\2', text)
 
+def format_cell_with_title(cell, title, content):
+    """Format cell with bold, underlined title at the top, then double line break before content."""
+    cell.text = ""
+    tf = cell.text_frame
+    tf.clear()
+
+    # Title paragraph: bold + underline
+    title_paragraph = tf.paragraphs[0]
+    title_run = title_paragraph.add_run()
+    title_run.text = str(title)
+    title_run.font.bold = True
+    title_run.font.underline = True
+
+    # Add a blank paragraph to create the double line break
+    tf.add_paragraph()
+
+    # Content paragraph
+    content_paragraph = tf.add_paragraph()
+    content_run = content_paragraph.add_run()
+    content_run.text = add_line_breaks_before_numbers(str(content))
+
+
 def get_cell_indices_left_to_right(num_rows, num_cols, num_items):
     """Generate cell indices filling left-to-right, then down"""
     indices = []
@@ -74,10 +96,12 @@ if uploaded_csv is not None:
         if len(df.columns) < 3:
             st.error("The uploaded CSV must have at least 3 columns: Topic, Question (2nd column), and Answer (3rd column).")
         else:
-            # Extract questions (col 2 / index 1) and answers (col 3 / index 2)
+            # Extract topic (col 1 / index 0), questions (col 2 / index 1), answers (col 3 / index 2)
+            t_col = df.columns[0]
             q_col = df.columns[1]
             a_col = df.columns[2]
             
+            topics = df[t_col].astype(str).tolist()
             questions = df[q_col].astype(str).tolist()
             answers = df[a_col].astype(str).tolist()
             
@@ -97,6 +121,7 @@ if uploaded_csv is not None:
                         q_slide = prs.slides[pair_idx * 2]
                         a_slide = prs.slides[pair_idx * 2 + 1]
                         
+                        batch_t = topics[pair_idx * 8 : (pair_idx + 1) * 8]
                         batch_q = questions[pair_idx * 8 : (pair_idx + 1) * 8]
                         batch_a = answers[pair_idx * 8 : (pair_idx + 1) * 8]
                         
@@ -111,7 +136,7 @@ if uploaded_csv is not None:
                                     for c_idx, cell in enumerate(row.cells):
                                         idx = r_idx * num_cols + c_idx
                                         if idx < len(batch_q):
-                                            cell.text = add_line_breaks_before_numbers(batch_q[idx])
+                                            format_cell_with_title(cell, batch_t[idx], batch_q[idx])
                                         else:
                                             cell.text = ""
                                             
@@ -133,10 +158,11 @@ if uploaded_csv is not None:
                                 # Then fill according to mirror mapping
                                 for r_idx, c_idx, item_idx in cell_mapping:
                                     if item_idx < len(batch_a):
-                                        table.rows[r_idx].cells[c_idx].text = (
-                                            add_line_breaks_before_numbers(batch_a[item_idx]) 
+                                        answer_content = (
+                                            add_line_breaks_before_numbers(batch_a[item_idx])
                                             if show_answers else ""
                                         )
+                                        format_cell_with_title(table.rows[r_idx].cells[c_idx], batch_t[item_idx], answer_content)
                                             
                     # Save to BytesIO buffer
                     output_buffer = io.BytesIO()
