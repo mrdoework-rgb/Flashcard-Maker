@@ -79,44 +79,49 @@ def create_flashcard_grid(slide, slide_width, slide_height, topics, questions=No
 
 def create_single_flashcard(slide, left, top, width, height, title, content, is_answer_sheet=False):
     """Draw one flashcard with a black title bar and a content box."""
-    border_color = RGBColor(0, 0, 0)
     if is_answer_sheet:
-        border_color = RGBColor(255, 255, 255)
+        content_left = left
+        content_top = top
+        content_width = width
+        content_height = height
+    else:
+        outer_card = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, left, top, width, height)
+        outer_card.fill.solid()
+        outer_card.fill.fore_color.rgb = RGBColor(255, 255, 255)
+        outer_card.line.color.rgb = RGBColor(0, 0, 0)
+        outer_card.line.width = Pt(0.5)
 
-    outer_card = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, left, top, width, height)
-    outer_card.fill.solid()
-    outer_card.fill.fore_color.rgb = RGBColor(255, 255, 255)
-    outer_card.line.color.rgb = border_color
-    outer_card.line.width = Pt(0.5)
+        title_area_height = height * 0.24
+        title_box = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, left, top, width, title_area_height)
+        title_box.fill.solid()
+        title_box.fill.fore_color.rgb = RGBColor(0, 0, 0)
+        title_box.line.color.rgb = RGBColor(0, 0, 0)
+        title_box.line.width = Pt(0.5)
 
-    title_area_height = height * 0.24
-    title_box = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, left, top, width, title_area_height)
-    title_box.fill.solid()
-    title_box.fill.fore_color.rgb = RGBColor(0, 0, 0)
-    title_box.line.color.rgb = border_color
-    title_box.line.width = Pt(0.5)
+        title_tf = title_box.text_frame
+        title_tf.clear()
+        title_tf.word_wrap = True
+        title_tf.vertical_anchor = MSO_ANCHOR.MIDDLE
+        title_tf.margin_left = Mm(3)
+        title_tf.margin_right = Mm(3)
+        title_tf.margin_top = Mm(1.5)
+        title_tf.margin_bottom = Mm(1.5)
+        p = title_tf.paragraphs[0]
+        p.text = title
+        p.alignment = PP_ALIGN.LEFT
+        p.space_before = Pt(0)
+        p.space_after = Pt(0)
+        for run in p.runs:
+            run.font.size = Pt(18)
+            run.font.bold = True
+            run.font.color.rgb = RGBColor(255, 255, 255)
 
-    title_tf = title_box.text_frame
-    title_tf.clear()
-    title_tf.word_wrap = True
-    title_tf.vertical_anchor = MSO_ANCHOR.MIDDLE
-    title_tf.margin_left = Mm(3)
-    title_tf.margin_right = Mm(3)
-    title_tf.margin_top = Mm(1.5)
-    title_tf.margin_bottom = Mm(1.5)
-    p = title_tf.paragraphs[0]
-    p.text = title
-    p.alignment = PP_ALIGN.LEFT
-    p.space_before = Pt(0)
-    p.space_after = Pt(0)
-    for run in p.runs:
-        run.font.size = Pt(13.5)
-        run.font.bold = True
-        run.font.color.rgb = RGBColor(255, 255, 255)
+        content_left = left + Mm(2.5)
+        content_top = top + title_area_height + Mm(1.2)
+        content_width = width - Mm(5)
+        content_height = height - title_area_height - Mm(2.4)
 
-    content_top = top + title_area_height + Mm(1.2)
-    content_height = height - title_area_height - Mm(2.4)
-    content_box = slide.shapes.add_textbox(left + Mm(2.5), content_top, width - Mm(5), content_height)
+    content_box = slide.shapes.add_textbox(content_left, content_top, content_width, content_height)
     content_box.fill.background()
     content_box.line.color.rgb = RGBColor(255, 255, 255)
     content_box.line.width = Pt(0)
