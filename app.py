@@ -112,7 +112,7 @@ def create_single_flashcard(slide, left, top, width, height, title, content, is_
         p.space_before = Pt(0)
         p.space_after = Pt(0)
         for run in p.runs:
-            run.font.size = Pt(18)
+            run.font.size = Pt(16)
             run.font.bold = True
             run.font.color.rgb = RGBColor(255, 255, 255)
 
