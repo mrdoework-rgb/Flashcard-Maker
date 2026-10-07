@@ -54,12 +54,16 @@ def create_flashcard_grid(slide, slide_width, slide_height, topics, questions=No
                 continue
 
             if is_answer_sheet:
+                # Mirror horizontally: map current display position to original card position
                 source_index = row * cols + (cols - 1 - col)
+                # Ensure source_index is within bounds
+                if source_index >= len(topics):
+                    continue
                 title_value = topics[source_index]
-                content_value = answers[source_index] if answers is not None else ""
+                content_value = answers[source_index] if answers is not None and source_index < len(answers) else ""
             else:
                 title_value = topics[slot_index]
-                content_value = questions[slot_index] if questions is not None else ""
+                content_value = questions[slot_index] if questions is not None and slot_index < len(questions) else ""
 
             left = margin + col * (card_width + gap)
             top = margin + row * (card_height + gap)
