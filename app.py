@@ -36,9 +36,9 @@ def add_line_breaks_before_numbers(text):
 
 
 def create_flashcard_grid(slide, slide_width, slide_height, topics, questions=None, answers=None, is_answer_sheet=False):
-    """Create a 2x8 grid of flashcards on a blank slide."""
-    rows = 2
-    cols = 8
+    """Create a 2-column by 4-row grid of flashcards on a blank slide."""
+    rows = 4
+    cols = 2
     margin = Mm(5)
     gap = Mm(3)
 
@@ -50,18 +50,16 @@ def create_flashcard_grid(slide, slide_width, slide_height, topics, questions=No
     for row in range(rows):
         for col in range(cols):
             slot_index = row * cols + col
-            if slot_index >= len(topics):
-                continue
-
             if is_answer_sheet:
                 # Mirror horizontally: map current display position to original card position
                 source_index = row * cols + (cols - 1 - col)
-                # Ensure source_index is within bounds
                 if source_index >= len(topics):
                     continue
                 title_value = topics[source_index]
                 content_value = answers[source_index] if answers is not None and source_index < len(answers) else ""
             else:
+                if slot_index >= len(topics):
+                    continue
                 title_value = topics[slot_index]
                 content_value = questions[slot_index] if questions is not None and slot_index < len(questions) else ""
 
@@ -151,14 +149,14 @@ def create_single_flashcard(slide, left, top, width, height, title, content, is_
 
 
 def create_flashcard_presentation(topics, questions, answers, show_answers=True):
-    """Create a fresh landscape A4 deck from scratch."""
+    """Create a fresh portrait A4 deck from scratch."""
     prs = Presentation()
-    prs.slide_width = Inches(11.69)
-    prs.slide_height = Inches(8.27)
+    prs.slide_width = Inches(8.27)
+    prs.slide_height = Inches(11.69)
     blank_layout = prs.slide_layouts[6]
 
     num_cards = len(topics)
-    cards_per_slide = 16
+    cards_per_slide = 8
     num_pairs = (num_cards + cards_per_slide - 1) // cards_per_slide
 
     for pair_index in range(num_pairs):
@@ -290,7 +288,7 @@ if st.session_state.df is not None:
                     output_buffer.seek(0)
 
                     num_cards = len(questions)
-                    num_pairs = (num_cards + 15) // 16
+                    num_pairs = (num_cards + 7) // 8
                     st.success(f"Generated presentation with {len(prs.slides)} slides ({num_pairs} question/answer page sets)!")
 
                     st.download_button(
