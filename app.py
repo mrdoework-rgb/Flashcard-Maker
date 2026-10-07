@@ -35,32 +35,15 @@ def add_line_breaks_before_numbers(text):
     return re.sub(r'([^\n])\s+(\d+\.)', r'\1\n\n\2', text)
 
 
-def make_paragraph_with_style(text_frame, text, font_size, color, bold=False, alignment=PP_ALIGN.LEFT):
-    """Create a paragraph and apply a consistent font style."""
-    p = text_frame.paragraphs[0] if text_frame.paragraphs else text_frame.add_paragraph()
-    if text_frame.paragraphs and p.text:
-        p = text_frame.add_paragraph()
-    p.text = text
-    p.alignment = alignment
-    p.space_before = Pt(0)
-    p.space_after = Pt(0)
-    p.level = 0
-    for run in p.runs:
-        run.font.size = Pt(font_size)
-        run.font.bold = bold
-        run.font.color.rgb = color
-    return p
-
-
-def create_flashcard_grid(slide, topics, questions=None, answers=None, is_answer_sheet=False):
+def create_flashcard_grid(slide, slide_width, slide_height, topics, questions=None, answers=None, is_answer_sheet=False):
     """Create a 2x8 grid of flashcards on a blank slide."""
     rows = 2
     cols = 8
     margin = Mm(5)
     gap = Mm(3)
 
-    usable_width = slide.slide_width - (margin * 2) - (gap * (cols - 1))
-    usable_height = slide.slide_height - (margin * 2) - (gap * (rows - 1))
+    usable_width = slide_width - (margin * 2) - (gap * (cols - 1))
+    usable_height = slide_height - (margin * 2) - (gap * (rows - 1))
     card_width = usable_width / cols
     card_height = usable_height / rows
 
@@ -185,6 +168,8 @@ def create_flashcard_presentation(topics, questions, answers, show_answers=True)
         question_slide = prs.slides.add_slide(blank_layout)
         create_flashcard_grid(
             slide=question_slide,
+            slide_width=prs.slide_width,
+            slide_height=prs.slide_height,
             topics=slide_topics,
             questions=slide_questions,
             answers=None,
@@ -195,6 +180,8 @@ def create_flashcard_presentation(topics, questions, answers, show_answers=True)
         answer_values = slide_answers if show_answers else ["" for _ in slide_answers]
         create_flashcard_grid(
             slide=answer_slide,
+            slide_width=prs.slide_width,
+            slide_height=prs.slide_height,
             topics=slide_topics,
             questions=None,
             answers=answer_values,
