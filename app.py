@@ -89,6 +89,13 @@ def create_flashcard_grid(slide, slide_width, slide_height, topics, questions=No
             )
 
 
+def remove_shape_shadow(shape):
+    """Disable the theme effect that can add a shadow to a PowerPoint shape."""
+    # python-pptx does not expose a shadow property; effect reference 0 means no effect.
+    for effect_reference in shape._element.xpath("./p:style/a:effectRef"):
+        effect_reference.set("idx", "0")
+
+
 def create_single_flashcard(slide, left, top, width, height, title, content, is_answer_sheet=False):
     """Draw a question-side card or its full-size, borderless answer reverse."""
     if is_answer_sheet:
@@ -105,7 +112,8 @@ def create_single_flashcard(slide, left, top, width, height, title, content, is_
         outer_card.fill.solid()
         outer_card.fill.fore_color.rgb = RGBColor(255, 255, 255)
         outer_card.line.color.rgb = RGBColor(0, 0, 0)
-        outer_card.line.width = Pt(0.5)
+        outer_card.line.width = Pt(2.25)
+        remove_shape_shadow(outer_card)
 
         # Front-side title block occupies the top 24% of the card height.
         title_area_height = height * 0.24
@@ -113,7 +121,8 @@ def create_single_flashcard(slide, left, top, width, height, title, content, is_
         title_box.fill.solid()
         title_box.fill.fore_color.rgb = RGBColor(0, 0, 0)
         title_box.line.color.rgb = RGBColor(0, 0, 0)
-        title_box.line.width = Pt(0.5)
+        title_box.line.width = Pt(2.25)
+        remove_shape_shadow(title_box)
 
         # Title text formatting: vertically centered, left aligned, and inset from
         # the title block's left/right edges so the white lettering does not touch them.
@@ -127,7 +136,7 @@ def create_single_flashcard(slide, left, top, width, height, title, content, is_
         title_tf.margin_bottom = Mm(1.5)
         p = title_tf.paragraphs[0]
         p.text = title
-        p.alignment = PP_ALIGN.LEFT
+        p.alignment = PP_ALIGN.CENTER
         p.space_before = Pt(0)
         p.space_after = Pt(0)
         for run in p.runs:
